@@ -1501,3 +1501,21 @@ BEGIN
     RETURN promedio_duracion;
 end;
 
+create user if not exists 'admin'@'localhost' identified by 'admin#2025';
+create user if not exists 'recepcionista'@'localhost' identified by 'recepcionista#2025';
+create user if not exists 'usuario'@'localhost' identified by 'usuario#2025';
+create user if not exists 'contador'@'%' identified by 'contado#2025';
+
+
+grant all privileges on coworking_db.* to 'admin'@'localhost' with grant option;
+
+grant select, insert, update on coworking_db.usuarios to 'recepcionista'@'localhost';
+grant select, insert, update on coworking_db.reservas to 'recepcionista'@'localhost';
+grant select, insert, update on coworking_db.membresias to 'recepcionista'@'localhost';
+
+alter user 'recepcionista'@'localhost' with max_queries_per_hour 200;
+
+grant select on coworking_db.reservas to 'usuario'@'localhost';
+grant select (nombre,correo) on coworking_db.servicios to 'contador'@'localhost';
+grant select (nombre,correo) on coworking_db.membresias to 'contador'@'localhost';
+grant select (nombre,correo) on coworking_db.servicios_reserva to 'contador'@'localhost';
