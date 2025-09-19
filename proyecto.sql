@@ -2676,3 +2676,81 @@ grant select on coworking_db.reservas to 'usuario'@'localhost';
 grant select (nombre,correo) on coworking_db.servicios to 'contador'@'localhost';
 grant select (nombre,correo) on coworking_db.membresias to 'contador'@'localhost';
 grant select (nombre,correo) on coworking_db.servicios_reserva to 'contador'@'localhost';
+
+-- =======================================================
+-- EXAMEN PUNTO 1
+-- =======================================================
+
+
+
+-- =======================================================
+-- EXAMEN PUNTO 2
+-- =======================================================
+
+CREATE VIEW VW_Estadisticas_Usuarios AS
+SELECT 
+    u.usuario_id,
+    u.nombre,
+    u.apellidos,
+    u.empresa,
+    COALESCE(u.empresa, 'Individual') AS tipo_usuario,
+    COUNT(DISTINCT r.reserva_id) AS total_reservas,
+    SUM(r.duracion_horas) AS total_horas_utilizadas,
+    SUM(r.precio_total) AS total_gastado_reservas,
+    COUNT(DISTINCT m.membresia_id) AS total_membresias,
+    SUM(CASE WHEN m.estado = 'Activa' THEN 1 ELSE 0 END) AS membresias_activas,
+    COUNT(DISTINCT a.acceso_id) AS total_accesos,
+    MAX(a.fecha_hora_entrada) AS ultimo_acceso,
+    DATEDIFF(CURDATE(), MAX(a.fecha_hora_entrada)) AS dias_desde_ultimo_acceso
+FROM usuarios u
+LEFT JOIN reservas r ON u.usuario_id = r.usuario_id
+LEFT JOIN membresias m ON u.usuario_id = m.usuario_id
+LEFT JOIN acceso a ON u.usuario_id = a.usuario_id AND a.resultado = 'Permitido'
+GROUP BY u.usuario_id, u.nombre, u.apellidos, u.empresa
+ORDER BY total_gastado_reservas DESC;
+
+-- =======================================================
+-- EXAMEN PUNTO 3
+-- =======================================================
+
+CREATE PROCEDURE sp_generar_reporte_mensual(IN p_mes INT, IN p_anio INT)
+BEGIN
+    -- Tabla temporal para el reporte
+    DROP TEMPORARY TABLE IF EXISTS temp_reporte_mensual;
+    CREATE TEMPORARY TABLE temp_reporte_mensual (
+        categoria VARCHAR(50),
+        metrica VARCHAR(50),
+        valor DECIMAL(15,2),
+        detalle TEXT
+    );
+    
+    -- 1. Ingresos totales
+    INSERT INTO temp_reporte_mensual
+    SELECT 'Ingresos', 'Total', SUM(total), 'Ingresos totales del mes'
+    FROM facturas 
+    WHERE MONTH(fecha_emision) = p_mes 
+    AND YEAR(fecha_emision) = p_anio
+    AND estado = 'Pagada';
+    
+    -- 2. Ingresos por concepto
+    INSERT INTO temp_reporte_mensual
+    SELECT 'Ingresos', concepto, SUM(total), CONCAT('Ingresos por ', concepto)
+    FROM facturas 
+    WHERE MONTH(fecha_emision) = p_mes 
+    AND YEAR(fecha_emision) = p_anio
+    AND estado = 'Pagada'
+    GROUP BY concepto;
+    
+    -- 3. Reservas realizadas
+    INSERT INTO temp_reporte_mensual
+    SELECT 'Reservas', 'Total', COUNT(*), 'Total de reservas del mes'
+    FROM reservas 
+    WHERE MONTH(fecha_reserva) = p_mes 
+    AND YEAR(fecha_reserva) = p_anio;
+   
+    
+    -- 4. Mostrar resultados
+    SELECT * FROM temp_reporte_mensual;
+    
+END;
+
